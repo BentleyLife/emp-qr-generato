@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>員工 QR Code 產生器</title>
+    <!-- 引入標準穩定的 QRCode.js 核心庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f2f4f8;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            background: #ffffff;
+            width: 100%;
+            max-width: 420px;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            text-align: center;
+        }
+        h2 { margin-top: 0; color: #333; font-size: 22px; }
+        p { color: #666; font-size: 14px; margin-bottom: 20px; }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input {
+            flex: 1;
+            padding: 12px 14px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            outline: none;
+        }
+        input:focus { border-color: #007bff; }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        button:active { background-color: #0056b3; }
+        
+        #result-box {
+            display: none;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        
+        canvas {
+            width: 100%;
+            max-width: 360px;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            background: #fff;
+        }
+        
+        .tip {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        .download-btn {
+            display: block;
+            width: 100%;
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+        .download-btn:active { background-color: #1e7e34; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>員工 QR Code 產生器</h2>
+        <p>輸入員工編號，立即合成 4 合 1 標準掃描圖</p>
+        
+        <div class="input-group">
+            <input type="text" id="empId" placeholder="例如：Andy Lin" autocomplete="off" onkeydown="if(event.key==='Enter') generateQRCode()" />
+            <button onclick="generateQRCode()">產生</button>
+        </div>
+
+        <div id="result-box">
+            <canvas id="qrCanvas" width="600" height="680"></canvas>
+            <div class="tip">💡 手機可直接「長按圖片」儲存，或點擊下方按鈕下載</div>
+            <a id="downloadBtn" class="download-btn" download="QRCode.png">儲存圖片到手機</a>
+        </div>
+    </div>
+
+    <script>
+        function generateQRCode() {
+            const empId = document.getElementById('empId').value.trim();
+            if (!empId) {
+                alert('請輸入員工編號！');
+                return;
+            }
+
+            const texts = [empId, `${empId}-1`, `${empId}-2`, `${empId}-3`];
+            const canvas = document.getElementById('qrCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 1. 填滿白底
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cellW = 300;
+            const cellH = 340;
+            let count = 0;
+
+            // 2. 利用標準 QRCode.js 產生 4 個獨立 QR Code 並組合進 Canvas
+            texts.forEach((text, index) => {
+                const tempDiv = document.createElement('div');
+                
+                // 建立標準 QR Code
+                new QRCode(tempDiv, {
+                    text: text,
+                    width: 240,
+                    height: 240,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.M
+                });
+
+                // 等待 DOM 渲染完成後抓取圖片繪製
+                setTimeout(() => {
+                    const img = tempDiv.querySelector('img');
+                    if (img) {
+                        const r = Math.floor(index / 2);
+                        const c = index % 2;
+                        const x = c * cellW + 30; 
+                        const y = r * cellH + 10;
+
+                        // 繪製文字標籤
+                        ctx.fillStyle = "#222";
+                        ctx.font = "bold 20px sans-serif";
+                        ctx.fillText(text, x, y + 25);
+
+                        // 繪製標準 QR code 圖片
+                        ctx.drawImage(img, x, y + 35, 240, 240);
+                    }
+
+                    count++;
+                    // 當 4 張都繪製完成後，顯示結果與下載按鈕
+                    if (count === texts.length) {
+                        document.getElementById('result-box').style.display = 'block';
+                        const dataUrl = canvas.toDataURL('image/png');
+                        const downloadBtn = document.getElementById('downloadBtn');
+                        downloadBtn.href = dataUrl;
+                        downloadBtn.download = `QRCode_${empId}.png`;
+                    }
+                }, 150);
+            });
+        }
+    </script>
+</body>
+</html>
